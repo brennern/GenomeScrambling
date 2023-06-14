@@ -100,17 +100,17 @@ ggplot(df) + geom_point() + aes(percent_mismatches_global, fraction_genome_align
 ggplot(df) + geom_point() + aes(percent_identity_global,   fraction_genome_aligned_avg, col = percent_mismatches_global)
 ```
 
-More Graphs *format this better later*:
+Calculate averages for synteny, correlations, strand randomisation indices, etc.
 ```r
 df$index_avg_synteny      <- ( df$index_synteny_target + df$index_synteny_query ) / 2
 df$index_avg_correlation  <- ( df$index_correlation_target + df$index_correlation_query ) / 2
 df$index_avg_GOCvicinity4 <- ( df$index_GOCvicinity4_target + df$index_GOCvicinity4_query ) / 2
 df$index_avg_strandRand   <- ( df$index_strandRand_target + df$index_strandRand_query ) / 2
+```
 
+Percent Identity Vs. Strand Randomisation Index Graph:
+```r
 df[,grepl("index_avg", colnames(df))] |> pairs()
-
-install.packages("plotly")
-library("plotly")
 
 df$lab <- ifelse(df$species1 > df$species2,
        paste(df$species1, df$species2, sep = "\n"),
@@ -130,22 +130,28 @@ df |>
     theme_bw() +
     ggtitle("fix me later") +
     geom_text() -> gg
+```
 
-##Similarity Vs. Synteny Index
+Similarity Vs. Synteny Index Graph:
+```r
 ggplot(df) + theme_bw() +
   aes(percent_identity_global, index_avg_synteny, col = percent_mismatches_global) +
   xlab("Identity between aligned regions (%)") +
   ylab("Synteny index") +
   geom_point()
+```
 
-##Similarity Vs. Correlation Index
+Similarity Vs. Correlation Index Graph:
+```r
 ggplot(df) + theme_bw() +
   aes(percent_identity_global, index_avg_strandRand, col = percent_mismatches_global) +
   xlab("Identity between aligned regions (%)") +
   ylab("Strand randomisation index") +
   geom_point() + geom_smooth()
+```
 
-##Gene Order Correlation
+Gene Order Correlation Graph:
+```r
 ggplot(df) +
   aes(percent_identity_global, index_avg_GOCvicinity4) +
   aes(color = species1) +

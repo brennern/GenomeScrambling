@@ -17,5 +17,25 @@ Once you have your `.tsv` file containing your genome data, run the `AllVsAllCom
 After running the `AllVsAllComparison.sh` script, you should have a multitude of `results_...` files in your results directory. The next script, named `makeGBreaksInputFile.sh` is going to format the data for the analysis in R. This will produce an input file in the `.tsv` format, upon which the script will prompt you to run a `nextflow` command containing that file. Here is the command:
 
 ```shell
-
+nextflow run oist/plessy_nf_GenomicBreaks -profile oist -r main --input input.tsv --skel 'https://raw.githubusercontent.com/oist/GenomicBreaks/95cad1b661ff756f22e7e2794b79f0d4b48dc3fc/inst/rmarkdown/templates/countFeatures/skeleton/skeleton.Rmd' -w /flash/LuscombeU/yourname/thefolderyoulike\n"
 ```
+
+## R Analysis
+Now, you should have a results directory called `results/genomicbreaks` within your working directory. The `genomicbreaks` directory will contain all of the results, which include `.html` and `.yaml` files. 
+
+First, load the following packages in R:
+```r
+library('GenomicBreaks') |> suppressPackageStartupMessages()
+library("ggplot2")
+library("pheatmap")
+```
+For the analysis, we will only want to include the `.yaml` files. Load the results and filter for `.yaml` files.
+```r
+params <- list()
+params$resultsDir <- '/your/working/directory/results/genomicbreaks'
+yamlFiles <- list.files(params$resultsDir, pattern = "*.yaml", full.names = TRUE)
+names(yamlFiles) <- yamlFiles |> basename() |> sub(pat = ".yaml", rep="")
+```
+
+
+

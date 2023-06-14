@@ -27,4 +27,77 @@ cd results/last
 eog query.08.plot.png
 ```
 
+## Analysis in R using `GenomicBreaks`
+Description
+
+Load in these packages:
+```r
+library('BiocManager')
+library('plyranges')
+library('remotes')
+remotes::install_github("oist/GenomicBreaks", repos=BiocManager::repositories())
+library('GenomicBreaks') |> suppressPackageStartupMessages()
+```
+
+Load the ...maf.gz file:
+```r
+data <- load_genomic_breaks("~/localfolder/yourfile.maf.gz")
+```
+
+Synteny
+```r
+synteny_index(data)
+synteny_index(swap(data))
+```
+
+Correlation
+```r
+correlation_index(data)
+correlation_index(swap(data))
+```
+
+Gene order conservation
+```r
+GOC(data)
+GOC(swap(data))
+```
+
+Strand randomisation index
+```r
+strand_randomisation_index(data)
+```
+
+Coalescing alignments
+```r
+coa <- coalesce_contigs(data)
+length(data)
+length(coa)
+```
+
+Genome Plots
+```r
+plotApairOfChrs(data, main = "Lokiarchaetoa / Odinarchaeota")
+
+data |> forceSeqLengths() |> reverse(query = TRUE) |>
+  plotApairOfChrs(main = "Lokiarchaetoa / Odinarchaeota (rev-complemented)")
+  
+plotApairOfChrs(coa, main = "Lokiarchaetoa / Odinarchaeota")
+
+makeOxfordPlots(data, col = "strand") +
+  scale_x_continuous() + scale_y_continuous() +
+  theme_bw() +
+  theme(legend.position="none") +
+  ggtitle("Lokiarchaetoa / Odinarchaeota `Oxford` plot")
+```
+
+Calculate Percent Identity:
+```r
+x <- data
+width(x)
+width(x$query)
+x$matches / width(x)
+sum(x$matches) / sum(width(x))
+```
+
+
 

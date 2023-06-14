@@ -1,4 +1,7 @@
 #!/bin/sh
+
+#By Dr. Charles Plessy at OIST
+
 if [ $# -eq 0 ]
 then
   printf "Usage: $0 path/to/dir/containing/results_dirs > input.tsv\n"

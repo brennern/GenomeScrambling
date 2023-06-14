@@ -130,6 +130,8 @@ df |>
     theme_bw() +
     ggtitle("fix me later") +
     geom_text() -> gg
+    
+plotly::ggplotly(gg)
 ```
 
 Similarity Vs. Synteny Index Graph:

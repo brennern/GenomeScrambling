@@ -44,37 +44,40 @@ Load the ...maf.gz file:
 data <- load_genomic_breaks("~/localfolder/yourfile.maf.gz")
 ```
 
-Synteny
+Synteny index: how syntenic the two genomes of comparison are.
 ```r
 synteny_index(data)
 synteny_index(swap(data))
 ```
 
+Correlation index: how correlated the syntenic regions are.
 Correlation
 ```r
 correlation_index(data)
 correlation_index(swap(data))
 ```
 
-Gene order conservation
+
+Gene order conservation: average number of orthologues for which the consecutive orthologue co-occurs close by in the other genome.
 ```r
 GOC(data)
 GOC(swap(data))
 ```
 
-Strand randomisation index
+
+Strand randomisation index: measure of how 'random' the alignment strand has become.
 ```r
 strand_randomisation_index(data)
 ```
 
-Coalescing alignments
+Coalescing alignments:
 ```r
 coa <- coalesce_contigs(data)
 length(data)
 length(coa)
 ```
 
-Genome Plots
+Genome Plots:
 ```r
 plotApairOfChrs(data, main = "Lokiarchaetoa / Odinarchaeota")
 
@@ -90,7 +93,7 @@ makeOxfordPlots(data, col = "strand") +
   ggtitle("Lokiarchaetoa / Odinarchaeota `Oxford` plot")
 ```
 
-Calculate Percent Identity:
+Percent Identity calculation:
 ```r
 x <- data
 width(x)

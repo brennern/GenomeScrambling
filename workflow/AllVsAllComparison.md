@@ -28,7 +28,9 @@ First, load the following packages in R:
 library('GenomicBreaks') |> suppressPackageStartupMessages()
 library("ggplot2")
 library("pheatmap")
+library("plotly")
 ```
+
 For the analysis, we will only want to include the `.yaml` files. Load the results and filter for `.yaml` files.
 ```r
 params <- list()
@@ -37,5 +39,119 @@ yamlFiles <- list.files(params$resultsDir, pattern = "*.yaml", full.names = TRUE
 names(yamlFiles) <- yamlFiles |> basename() |> sub(pat = ".yaml", rep="")
 ```
 
+Create this getStats function which will be used in the next step.
+```r
+getStats <- function(file) {
+  y <- yaml::read_yaml(file) |> yaml::yaml.load()
+  unlist(y)
+}
+```
+
+Additional formatting:
+```r
+df <- do.call(rbind, lapply(yamlFiles, getStats)) |> as.data.frame()
+df <- df[,colSums(df, na.rm = TRUE) !=0]
+df$species1 <- strsplit(rownames(df), "___") |> lapply(\(.) .[1]) |> unlist()
+df$species2 <- strsplit(rownames(df), "___") |> lapply(\(.) .[2]) |> unlist()
+df <- df[df$species1 != df$species2,]
+```
+
+Create this makeMatrix function.
+```r
+makeMatrix <- function(df, column, defaultDiagonal = 100, defaultValue = NA) {
+  species <- unique(df$species2)
+  m <- matrix(defaultValue, nrow=length(species), ncol=length(species))
+  colnames(m) <- rownames(m) <- species
+  for (i in 1:length(species)) {
+    m[i,i] <- defaultDiagonal
+  }
+  for (i in 1:nrow(df)) {
+    s1 <- df[i, "species1"]
+    s2 <- df[i, "species2"]
+    if(s1 %in% species)
+      m[s1, s2] <- df[i, column]
+  }
+  m
+}
+```
+
+Analyze percent identities and mismatches:
+```r
+df$percent_identity_global <- df$matches_number_Total / df$aligned_length_Total * 100
+df$percent_mismatches_global <- df$mismatches_number_Total / df$aligned_length_Total * 100
+ggplot(df) + geom_point() + aes(percent_identity_global, percent_mismatches_global)
+```
+
+Percent identity global:
+```r
+m <- makeMatrix(df, "percent_identity_global")
+pheatmap::pheatmap(as.matrix(cluster::daisy(m)))
+m <- makeMatrix(df, "percent_identity_global", 100, 50)
+pheatmap::pheatmap(as.matrix(m), sym=T)
+```
+
+Fraction of genome aligned:
+```r
+df$fraction_genome_aligned_target <- df$aligned_target_Total / df$guessed_target_length * 100
+df$fraction_genome_aligned_query  <- df$aligned_query_Total  / df$guessed_query_length  * 100
+df$fraction_genome_aligned_avg    <- (df$fraction_genome_aligned_target + df$fraction_genome_aligned_query) / 2
+
+ggplot(df) + geom_point() + aes(percent_mismatches_global, fraction_genome_aligned_avg, col = percent_identity_global)
+ggplot(df) + geom_point() + aes(percent_identity_global,   fraction_genome_aligned_avg, col = percent_mismatches_global)
+```
+
+More Graphs *format this better later*:
+```r
+df$index_avg_synteny      <- ( df$index_synteny_target + df$index_synteny_query ) / 2
+df$index_avg_correlation  <- ( df$index_correlation_target + df$index_correlation_query ) / 2
+df$index_avg_GOCvicinity4 <- ( df$index_GOCvicinity4_target + df$index_GOCvicinity4_query ) / 2
+df$index_avg_strandRand   <- ( df$index_strandRand_target + df$index_strandRand_query ) / 2
+
+df[,grepl("index_avg", colnames(df))] |> pairs()
+
+install.packages("plotly")
+library("plotly")
+
+df$lab <- ifelse(df$species1 > df$species2,
+       paste(df$species1, df$species2, sep = "\n"),
+       paste(df$species2, df$species1, sep = "\n"))
+
+df |>
+  #dplyr::filter(index_avg_synteny > 0.25) |>
+  dplyr::group_by(lab) |>
+  dplyr::summarise(percent_identity_global = mean(percent_identity_global),
+                   index_avg_strandRand = mean(index_avg_strandRand),
+                   lab = lab) |>
+  ggplot() +
+    geom_point() +
+    aes(percent_identity_global, index_avg_strandRand, label=lab) +
+    scale_x_continuous("Synteny index") +
+    scale_y_continuous("Strand randomisation index") +
+    theme_bw() +
+    ggtitle("fix me later") +
+    geom_text() -> gg
+
+##Similarity Vs. Synteny Index
+ggplot(df) + theme_bw() +
+  aes(percent_identity_global, index_avg_synteny, col = percent_mismatches_global) +
+  xlab("Identity between aligned regions (%)") +
+  ylab("Synteny index") +
+  geom_point()
+
+##Similarity Vs. Correlation Index
+ggplot(df) + theme_bw() +
+  aes(percent_identity_global, index_avg_strandRand, col = percent_mismatches_global) +
+  xlab("Identity between aligned regions (%)") +
+  ylab("Strand randomisation index") +
+  geom_point() + geom_smooth()
+
+##Gene Order Correlation
+ggplot(df) +
+  aes(percent_identity_global, index_avg_GOCvicinity4) +
+  aes(color = species1) +
+  xlab("Similarity between aligned regions") +
+  ylab("abs(correlation index)") +
+  geom_point()
+```
 
 

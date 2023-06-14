@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#By Dr. Michael Mansfield and Dr. Charles Plessy at OIST
+
 # This snippet will not work unless NCBI Datasets and the NCBI EUtils are installed.
 
 if ! command -v datasets >/dev/null 2>&1; then

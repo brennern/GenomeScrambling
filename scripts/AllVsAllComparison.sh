@@ -1,13 +1,13 @@
 #By Dr. Michael Mansfield and Dr. Charles Plessy at OIST
 
-cut -f 1,2 ../Enterobacteriaceae.tsv |
+cut -f 1,2 ../TAXON_NAME.tsv |
   sed 1d |
   while read ID FILE
   do
     nextflow run -r v5.2.0 oist/plessy_pairwiseGenomeComparison \
-      --input ../Enterobacteriaceae.tsv \
+      --input ../TAXON_NAME.tsv \
       -profile oist \
-      -w /flash/LuscombeU/deletemeCharlesPlessy/nf_work_Enterobacteriaceae \
+      -w /your/directory/to/store/results \
       --target $FILE \
       -resume
     mv results results_$ID

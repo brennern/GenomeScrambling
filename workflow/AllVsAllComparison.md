@@ -82,7 +82,7 @@ df$percent_mismatches_global <- df$mismatches_number_Total / df$aligned_length_T
 ggplot(df) + geom_point() + aes(percent_identity_global, percent_mismatches_global)
 ```
 
-Percent identity global:
+Percent identity global heatmaps:
 ```r
 m <- makeMatrix(df, "percent_identity_global")
 pheatmap::pheatmap(as.matrix(cluster::daisy(m)))

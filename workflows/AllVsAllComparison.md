@@ -100,18 +100,48 @@ ggplot(df) + geom_point() + aes(percent_mismatches_global, fraction_genome_align
 ggplot(df) + geom_point() + aes(percent_identity_global,   fraction_genome_aligned_avg, col = percent_mismatches_global)
 ```
 
+Fraction of genome chained:
+```r
+df$fraction_genome_chained_target <- df$chain_target_Total / df$guessed_target_length * 100
+df$fraction_genome_chained_query  <- df$chain_query_Total  / df$guessed_query_length  * 100
+df$fraction_genome_chained_avg    <- (df$fraction_genome_chained_target + df$fraction_genome_chained_query) / 2
+
+ggplot(df) + geom_point() + aes(percent_mismatches_global, fraction_genome_chained_avg, col = percent_identity_global)
+```
+
+Width of aligned regions:
+```r
+##Aligned Width 1
+ggplot(df) + geom_point() + aes(percent_identity_global, aligned_length_Mean, col = percent_mismatches_global)
+ggplot(df) + geom_point() + aes(percent_mismatches_global, aligned_length_Mean, col = percent_identity_global)
+
+##Aligned Width 2
+ggplot(df) + geom_point() + aes(percent_identity_global, aligned_target_Mean / guessed_target_length, col = percent_mismatches_global) + scale_y_log10()
+ggplot(df) + geom_point() + aes(percent_identity_global, aligned_query_Mean  / guessed_query_length, col = percent_mismatches_global) + scale_y_log10()
+ggplot(df) + geom_point() + aes(percent_identity_global, aligned_length_Mean  / (guessed_target_length + guessed_query_length) / 2, col = percent_mismatches_global)  + scale_y_log10()
+```
+
+Length of the chains:
+```r
+ggplot(df) + geom_point() + aes(percent_identity_global, chain_target_Mean, col = percent_mismatches_global) + scale_y_log10()
+ggplot(df) + geom_point() + aes(percent_mismatches_global, chain_target_Mean, col = percent_identity_global) + scale_y_log10()
+
+ggplot(df) + geom_point() + aes(percent_identity_global, chain_target_Mean / guessed_target_length, col = percent_mismatches_global) + scale_y_log10()
+ggplot(df) + geom_point() + aes(percent_identity_global, chain_query_Mean  / guessed_query_length, col = percent_mismatches_global) + scale_y_log10()
+```
+
 Calculate averages for synteny, correlations, strand randomisation indices, etc.
 ```r
 df$index_avg_synteny      <- ( df$index_synteny_target + df$index_synteny_query ) / 2
 df$index_avg_correlation  <- ( df$index_correlation_target + df$index_correlation_query ) / 2
 df$index_avg_GOCvicinity4 <- ( df$index_GOCvicinity4_target + df$index_GOCvicinity4_query ) / 2
 df$index_avg_strandRand   <- ( df$index_strandRand_target + df$index_strandRand_query ) / 2
+
+df[,grepl("index_avg", colnames(df))] |> pairs()
 ```
 
 Percent Identity Vs. Strand Randomisation Index Graph:
 ```r
-df[,grepl("index_avg", colnames(df))] |> pairs()
-
 df$lab <- ifelse(df$species1 > df$species2,
        paste(df$species1, df$species2, sep = "\n"),
        paste(df$species2, df$species1, sep = "\n"))

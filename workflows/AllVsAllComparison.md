@@ -26,9 +26,9 @@ Now, you should have a results directory called `results/genomicbreaks` within y
 First, load the following packages in R:
 ```r
 library('GenomicBreaks') |> suppressPackageStartupMessages()
-library("ggplot2")
-library("pheatmap")
-library("plotly")
+library('ggplot2')
+library('pheatmap')
+library('plotly')
 ```
 
 For the analysis, we will only want to include the `.yaml` files. Load the results and filter for `.yaml` files.

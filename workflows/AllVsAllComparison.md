@@ -47,7 +47,7 @@ getStats <- function(file) {
 }
 ```
 
-Additional formatting:
+Data formatting: binds .yaml file calculations/information to each respective species comparison. Also, creates species1 and species2 variables by splitting the rownames by `___` and removes data where species1 and species2 are the same species in a comparison.
 ```r
 df <- do.call(rbind, lapply(yamlFiles, getStats)) |> as.data.frame()
 df <- df[,colSums(df, na.rm = TRUE) !=0]
@@ -56,7 +56,7 @@ df$species2 <- strsplit(rownames(df), "___") |> lapply(\(.) .[2]) |> unlist()
 df <- df[df$species1 != df$species2,]
 ```
 
-Create this makeMatrix function.
+Create this makeMatrix function. This will allow us to produce a matrix of the species comparisons but specifically analyzing one variable, such as `percent identity global` or `strand randomisation index`.
 ```r
 makeMatrix <- function(df, column, defaultDiagonal = 100, defaultValue = NA) {
   species <- unique(df$species2)
@@ -75,22 +75,33 @@ makeMatrix <- function(df, column, defaultDiagonal = 100, defaultValue = NA) {
 }
 ```
 
-Analyze percent identities and mismatches:
+Calculate the percent identities and percent mismatches and analyze.
 ```r
 df$percent_identity_global <- df$matches_number_Total / df$aligned_length_Total * 100
 df$percent_mismatches_global <- df$mismatches_number_Total / df$aligned_length_Total * 100
 ggplot(df) + geom_point() + aes(percent_identity_global, percent_mismatches_global)
 ```
 
-Percent identity global heatmaps:
+Create percent identity global heatmaps and dendrogram using the makeMatrix function:
 ```r
 m <- makeMatrix(df, "percent_identity_global")
 pheatmap::pheatmap(as.matrix(cluster::daisy(m)))
 m <- makeMatrix(df, "percent_identity_global", 100, 50)
 pheatmap::pheatmap(as.matrix(m), sym=T)
+
+hclust <- hclust(dist(m), method = "complete")
+as.dendrogram(hclust) %>%
+  set("labels_cex", 0.4) %>%
+  set("labels_col", k=6) %>%
+  set("leaves_pch", 21) %>% # change leaves shape
+  set("leaves_bg", "gold") %>% # change leaves inner color   
+  set("leaves_cex", 1) %>% # change leaves size
+  set("branches_k_color", k=6) %>% 
+  set("leaves_col", "black") %>%
+  plot(horiz = FALSE)
 ```
 
-Fraction of genome aligned:
+Calculate the fraction of genomes aligned:
 ```r
 df$fraction_genome_aligned_target <- df$aligned_target_Total / df$guessed_target_length * 100
 df$fraction_genome_aligned_query  <- df$aligned_query_Total  / df$guessed_query_length  * 100
@@ -100,7 +111,7 @@ ggplot(df) + geom_point() + aes(percent_mismatches_global, fraction_genome_align
 ggplot(df) + geom_point() + aes(percent_identity_global,   fraction_genome_aligned_avg, col = percent_mismatches_global)
 ```
 
-Fraction of genome chained:
+Calculate the fraction of genome chained:
 ```r
 df$fraction_genome_chained_target <- df$chain_target_Total / df$guessed_target_length * 100
 df$fraction_genome_chained_query  <- df$chain_query_Total  / df$guessed_query_length  * 100
@@ -109,7 +120,7 @@ df$fraction_genome_chained_avg    <- (df$fraction_genome_chained_target + df$fra
 ggplot(df) + geom_point() + aes(percent_mismatches_global, fraction_genome_chained_avg, col = percent_identity_global)
 ```
 
-Width of aligned regions:
+Calculate the width of aligned regions:
 ```r
 ##Aligned Width 1
 ggplot(df) + geom_point() + aes(percent_identity_global, aligned_length_Mean, col = percent_mismatches_global)
@@ -121,7 +132,7 @@ ggplot(df) + geom_point() + aes(percent_identity_global, aligned_query_Mean  / g
 ggplot(df) + geom_point() + aes(percent_identity_global, aligned_length_Mean  / (guessed_target_length + guessed_query_length) / 2, col = percent_mismatches_global)  + scale_y_log10()
 ```
 
-Length of the chains:
+Calculate the length of the chains:
 ```r
 ggplot(df) + geom_point() + aes(percent_identity_global, chain_target_Mean, col = percent_mismatches_global) + scale_y_log10()
 ggplot(df) + geom_point() + aes(percent_mismatches_global, chain_target_Mean, col = percent_identity_global) + scale_y_log10()

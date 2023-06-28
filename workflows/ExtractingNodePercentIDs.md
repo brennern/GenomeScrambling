@@ -85,7 +85,7 @@ addLabels <- function(tree, fun, matrix) {
 
 Finally, utilize 'dendrapply' to iterate both functions to the dendrogram object.
 ```r
-dendrapply(dend, addLabels, extractPercentID, m)
+y <- dendrapply(dend, addLabels, extractPercentID, m)
 ```
 
 ## Plotting the Percent Identities

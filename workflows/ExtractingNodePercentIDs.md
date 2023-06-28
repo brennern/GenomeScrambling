@@ -111,11 +111,15 @@ extractPercentID2 <- function(tree, matrix, ...) {
   percent_ID <- mean(comparison)
   percent_ID
 }
+
+y <- ape::as.phylo(y)
 ```
 
 pID2 testing:
 ```r
 pID2 <- sapply(subtrees(y), extractPercentID2, m)
+y <- TreeTools::Preorder(y)
+
 ggtree(y) + geom_tiplab(as_ylab=TRUE, color="blue") + geom_label(aes(label=round(pID2)))
 ```
 

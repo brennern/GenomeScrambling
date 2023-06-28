@@ -8,6 +8,11 @@ library("dplyr")
 library("dendextend")
 library("BiocManager")
 library("ggtree")
+library("ape")
+library("phytools")
+library("tidytree")
+library("ggplot2")
+library("TreeTools")
 ```
 
 Next, load in the data just like in the AllVsAllComparison.md workflow.
@@ -83,6 +88,35 @@ Finally, utilize 'dendrapply' to iterate both functions to the dendrogram object
 dendrapply(dend, addLabels, extractPercentID, m)
 ```
 
+## Plotting the Percent Identities
+Original pID testing:
+```r
+y %>% get_nodes_attr("percentID")
+pID <- y %>% get_nodes_attr("percentID")
+pID[is.na(pID)] <- 100
 
+ggtree(y) + geom_tiplab(as_ylab=TRUE, color="blue") + geom_nodelab()
+```
+Modified percent identity function for 'phylo' tree objects.
+```r
+extractPercentID2 <- function(tree, matrix, ...) {
+  stopifnot(is.phylo(tree))
+  treelist <- subtrees(tree)
+  if (length(treelist) < 3) return (0)
+  left_side <- treelist[[2]]
+  right_side <- treelist[[3]]
+  left_side_species <- labels(left_side)
+  right_side_species <- labels(right_side)
+  comparison <- matrix[left_side_species, right_side_species, drop=F]
+  percent_ID <- mean(comparison)
+  percent_ID
+}
+```
+
+pID2 testing:
+```r
+pID2 <- sapply(subtrees(y), extractPercentID2, m)
+ggtree(y) + geom_tiplab(as_ylab=TRUE, color="blue") + geom_label(aes(label=round(pID2)))
+```
 
 

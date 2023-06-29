@@ -58,69 +58,40 @@ hclust <- hclust(dist(m), method = "complete")
 dend <- as.dendrogram(hclust)
 ```
 
-## 'extractPercentID' and 'addLabels' Functions
+## 'extractPercentID' Function
 We will create a function that iterates through the dendrogram, calculating the percent identity between every internal node
 with the consideration of their "children".
 ```r
-extractPercentID <- function(tree, matrix, ...) {
-  left_side <- tree[[1]]
-  right_side <- tree[[2]]
-  left_side_species <- labels(left_side)
-  right_side_species <- labels(right_side)
-  comparison <- matrix[left_side_species, right_side_species, drop=F]
-  percent_ID <- mean(comparison)
-  percent_ID
-}
-```
-
-Then, we will create a function which creates a percent identity attribute following each calculation, providing a label to each node.
-```r
-addLabels <- function(tree, fun, matrix) {
-  if(is.null(attr(tree, "leaf"))) {
-    attr(tree, "percentID") <- fun(tree, matrix)
+extractPercentID <- function(node, tibble, matrix, fun = mean) {
+  children <- child(tibble, node)
+  stopifnot(nrow(children) == 2)
+  left_side_node  <- children[1, "node", drop = TRUE]
+  right_side_node <- children[2, "node", drop = TRUE]
+  tipLabels <- function(node, tibble) {
+    tipLabel <- tibble[node,"label", drop = TRUE]
+    if(!is.na(tipLabel)) return(tipLabel)
+    offspring(tibble, node)$label |> Filter(complete.cases, x=_)
   }
-  tree
-}
-```
-
-Finally, utilize 'dendrapply' to iterate both functions to the dendrogram object.
-```r
-y <- dendrapply(dend, addLabels, extractPercentID, m)
-```
-
-## Plotting the Percent Identities
-Original pID testing:
-```r
-y %>% get_nodes_attr("percentID")
-pID <- y %>% get_nodes_attr("percentID")
-pID[is.na(pID)] <- 100
-
-ggtree(y) + geom_tiplab(as_ylab=TRUE, color="blue") + geom_nodelab()
-```
-Modified percent identity function for 'phylo' tree objects.
-```r
-extractPercentID2 <- function(tree, matrix, ...) {
-  stopifnot(is.phylo(tree))
-  treelist <- subtrees(tree)
-  if (length(treelist) < 3) return (0)
-  left_side <- treelist[[2]]
-  right_side <- treelist[[3]]
-  left_side_species <- labels(left_side)
-  right_side_species <- labels(right_side)
+  left_side_species  <- tipLabels(left_side_node,  tibble)
+  right_side_species <- tipLabels(right_side_node, tibble)
   comparison <- matrix[left_side_species, right_side_species, drop=F]
-  percent_ID <- mean(comparison)
-  percent_ID
+  percentID <- fun(comparison)
+  percentID
 }
-
-y <- ape::as.phylo(y)
 ```
 
-pID2 testing:
+Then, we will apply this function to the dendrogram.
 ```r
-pID2 <- sapply(subtrees(y), extractPercentID2, m)
-y <- TreeTools::Preorder(y)
-
-ggtree(y) + geom_tiplab(as_ylab=TRUE, color="blue") + geom_label(aes(label=round(pID2)))
+as_tibble(as.phylo(dend)) -> td
+pIDs <- unique(td$parent) |> sort() |> purrr::set_names() |> sapply(extractPercentID, td, m)
+td$percentID <- NA
+td[names(pIDs), "percentID"] <- unname(pIDs)
 ```
 
-
+Finally, utilize 'ggtree' to plot the percent identities on the dendrogram.
+```r
+ggtree(as.treedata(td), branch.length='none') + 
+  geom_tiplab(as_ylab=TRUE, color="purple", size = 7, ) + 
+  geom_label(aes(label=round(percentID, digit = 2), color = percentID), label.size = 0.25, size = 2.5, na.rm = TRUE) +
+  scale_color_viridis_c()
+```

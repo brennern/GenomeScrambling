@@ -110,6 +110,7 @@ td$percentID <- NA
 td[names(sRIs), "strandRand"] <- unname(sRIs)
 td[names(pIDs), "percentID"] <- unname(pIDs)
 
+##Get Node Numbers
 ggtree(as.treedata(td), branch.length='none') + 
   geom_tiplab(as_ylab=TRUE) + 
   geom_text(aes(label=node))

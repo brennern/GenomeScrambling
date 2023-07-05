@@ -1,0 +1,192 @@
+---
+title: "thermococci-analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("tibble")
+library("GenomicBreaks") |> suppressPackageStartupMessages()
+library("ggplot2")
+library("pheatmap")
+library("plotly")
+library("dplyr")
+library("dendextend")
+library("BiocManager")
+library("ggtree")
+
+```
+
+##Load Data
+```{r}
+params <- list()
+params$resultsDir <- '/flash/LuscombeU/noa/thermococci/results/genomicbreaks'
+yamlFiles <- list.files(params$resultsDir, pattern = "*.yaml", full.names = TRUE)
+names(yamlFiles) <- yamlFiles |> basename() |> sub(pat = ".yaml", rep="")
+```
+
+
+##getStats
+```{r}
+getStats <- function(file) {
+  y <- yaml::read_yaml(file) |> yaml::yaml.load()
+  unlist(y)
+}
+```
+
+##Data Formatting
+```{r}
+df <- do.call(rbind, lapply(yamlFiles, getStats)) |> as.data.frame()
+df <- df[,colSums(df, na.rm = TRUE) !=0]
+df$species1 <- strsplit(rownames(df), "___") |> lapply(\(.) .[1]) |> unlist()
+df$species2 <- strsplit(rownames(df), "___") |> lapply(\(.) .[2]) |> unlist()
+
+df <- df[df$species1 != df$species2,]
+```
+
+
+##makeMatrix
+```{r}
+makeMatrix <- function(df, column, defaultDiagonal = 100, defaultValue = NA) {
+  species <- unique(df$species2)
+  m <- matrix(defaultValue, nrow=length(species), ncol=length(species))
+  colnames(m) <- rownames(m) <- species
+  for (i in 1:length(species)) {
+    m[i,i] <- defaultDiagonal
+  }
+  for (i in 1:nrow(df)) {
+    s1 <- df[i, "species1"]
+    s2 <- df[i, "species2"]
+    if(s1 %in% species)
+      m[s1, s2] <- df[i, column]
+  }
+  m
+}
+```
+
+
+##Percent Identity and Mismatches
+```{r}
+df$percent_identity_global   <- df$matches_number_Total    / df$aligned_length_Total * 100
+df$percent_mismatches_global <- df$mismatches_number_Total / df$aligned_length_Total * 100
+ggplot(df) + geom_point() + aes(percent_identity_global,  percent_mismatches_global)
+```
+
+
+##Percent Identity Global
+```{r}
+m <- makeMatrix(df, "percent_identity_global")
+pheatmap::pheatmap(as.matrix(cluster::daisy(m)), fontsize_row = 5, fontsize_col = 5)
+m <- makeMatrix(df, "percent_identity_global", 100, 50)
+pheatmap::pheatmap(as.matrix(m), sym=T, fontsize_row = 5, fontsize_col = 5)
+```
+
+
+##Fraction of Genome Aligned
+```{r}
+df$fraction_genome_aligned_target <- df$aligned_target_Total / df$guessed_target_length * 100
+df$fraction_genome_aligned_query  <- df$aligned_query_Total  / df$guessed_query_length  * 100
+df$fraction_genome_aligned_avg    <- (df$fraction_genome_aligned_target + df$fraction_genome_aligned_query) / 2
+
+ggplot(df) + geom_point() + aes(percent_mismatches_global, fraction_genome_aligned_avg, col = percent_identity_global)
+ggplot(df) + geom_point() + aes(percent_identity_global,   fraction_genome_aligned_avg, col = percent_mismatches_global)
+```
+
+
+##Fraction of Genome Chained
+```{r}
+df$fraction_genome_chained_target <- df$chain_target_Total / df$guessed_target_length * 100
+df$fraction_genome_chained_query  <- df$chain_query_Total  / df$guessed_query_length  * 100
+df$fraction_genome_chained_avg    <- (df$fraction_genome_chained_target + df$fraction_genome_chained_query) / 2
+
+ggplot(df) + geom_point() + aes(percent_mismatches_global, fraction_genome_chained_avg, col = percent_identity_global)
+```
+
+
+##Width of Aligned Regions
+```{r}
+##Aligned Width 1
+ggplot(df) + geom_point() + aes(percent_identity_global, aligned_length_Mean, col = percent_mismatches_global)
+ggplot(df) + geom_point() + aes(percent_mismatches_global, aligned_length_Mean, col = percent_identity_global)
+
+##Aligned Width 2
+ggplot(df) + geom_point() + aes(percent_identity_global, aligned_target_Mean / guessed_target_length, col = percent_mismatches_global) + scale_y_log10()
+ggplot(df) + geom_point() + aes(percent_identity_global, aligned_query_Mean  / guessed_query_length, col = percent_mismatches_global) + scale_y_log10()
+ggplot(df) + geom_point() + aes(percent_identity_global, aligned_length_Mean  / (guessed_target_length + guessed_query_length) / 2, col = percent_mismatches_global)  + scale_y_log10()
+```
+
+
+##Length of the Chains
+```{r}
+ggplot(df) + geom_point() + aes(percent_identity_global, chain_target_Mean, col = percent_mismatches_global) + scale_y_log10()
+ggplot(df) + geom_point() + aes(percent_mismatches_global, chain_target_Mean, col = percent_identity_global) + scale_y_log10()
+
+ggplot(df) + geom_point() + aes(percent_identity_global, chain_target_Mean / guessed_target_length, col = percent_mismatches_global) + scale_y_log10()
+ggplot(df) + geom_point() + aes(percent_identity_global, chain_query_Mean  / guessed_query_length, col = percent_mismatches_global) + scale_y_log10()
+```
+
+
+##Indices
+```{r}
+df$index_avg_synteny      <- ( df$index_synteny_target + df$index_synteny_query ) / 2
+df$index_avg_correlation  <- ( df$index_correlation_target + df$index_correlation_query ) / 2
+df$index_avg_GOCvicinity4 <- ( df$index_GOCvicinity4_target + df$index_GOCvicinity4_query ) / 2
+df$index_avg_strandRand   <- ( df$index_strandRand_target + df$index_strandRand_query ) / 2
+
+df[,grepl("index_avg", colnames(df))] |> pairs()
+```
+
+
+##Percent Identity Vs. Strand Randomisation Index Graph
+```{r}
+df$lab <- ifelse(df$species1 > df$species2,
+       paste(df$species1, df$species2, sep = "\n"),
+       paste(df$species2, df$species1, sep = "\n"))
+
+df |>
+  #dplyr::filter(index_avg_synteny > 0.25) |>
+  dplyr::group_by(lab) |>
+  dplyr::summarise(percent_identity_global = mean(percent_identity_global),
+                   index_avg_strandRand = mean(index_avg_strandRand),
+                   lab = lab) |>
+  ggplot() +
+    geom_point() +
+    aes(percent_identity_global, index_avg_strandRand, label=lab) +
+    scale_x_continuous("Percent Identity") +
+    scale_y_continuous("Strand Randomisation Index") +
+    theme_bw() +
+    ggtitle("Thermococci: Percent Identity Vs. Strand Randomisation Index") +
+    geom_text() -> gg
+    plotly::ggplotly(gg)
+```
+
+
+##Similarity Vs. Synteny Index
+```{r}
+ggplot(df) + theme_bw() +
+  aes(percent_identity_global, index_avg_synteny, col = percent_mismatches_global) +
+  xlab("Identity between aligned regions (%)") +
+  ylab("Synteny index") +
+  geom_point()
+```
+
+
+##Similarity Vs. Correlation Index
+```{r}
+ggplot(df) + theme_bw() +
+  aes(percent_identity_global, index_avg_strandRand, col = percent_mismatches_global) +
+  xlab("Identity between aligned regions (%)") +
+  ylab("Strand randomisation index") +
+  geom_point() + geom_smooth()
+```
+
+
+##Gene Order Correlation
+```{r}
+ggplot(df) +
+  aes(percent_identity_global, index_avg_GOCvicinity4) +
+  aes(color = species1) +
+  xlab("Similarity between aligned regions") +
+  ylab("abs(correlation index)") +
+  geom_point()
+```

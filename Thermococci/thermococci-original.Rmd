@@ -1,0 +1,150 @@
+---
+title: "thermococci-tree"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("GenomicBreaks") |> suppressPackageStartupMessages()
+library("ggplot2")
+library("pheatmap")
+library("plotly")
+library("dplyr")
+library("dendextend")
+library("BiocManager")
+library("ggtree")
+library("phytools")
+library("ape")
+library("rrapply")
+library("tidytree")
+library("viridis")
+library("ggnewscale")
+```
+
+
+##Thermococci Data
+```{r}
+params <- list()
+params$resultsDir <- '/flash/LuscombeU/noa/thermococci/results/genomicbreaks'
+yamlFiles <- list.files(params$resultsDir, pattern = "*.yaml", full.names = TRUE)
+names(yamlFiles) <- yamlFiles |> basename() |> sub(pat = ".yaml", rep="")
+
+getStats <- function(file) {
+  y <- yaml::read_yaml(file) |> yaml::yaml.load()
+  unlist(y)
+}
+
+df <- do.call(rbind, lapply(yamlFiles, getStats)) |> as.data.frame()
+df <- df[,colSums(df, na.rm = TRUE) !=0]
+df$species1 <- strsplit(rownames(df), "___") |> lapply(\(.) .[1]) |> unlist()
+df$species2 <- strsplit(rownames(df), "___") |> lapply(\(.) .[2]) |> unlist()
+df <- df[df$species1 != df$species2,]
+df$index_avg_strandRand   <- ( df$index_strandRand_target + df$index_strandRand_query ) / 2
+df$percent_identity_global   <- df$matches_number_Total    / df$aligned_length_Total * 100
+
+makeMatrix <- function(df, column, defaultDiagonal = 100, defaultValue = NA) {
+  species <- unique(df$species2)
+  m <- matrix(defaultValue, nrow=length(species), ncol=length(species))
+  colnames(m) <- rownames(m) <- species
+  for (i in 1:length(species)) {
+    m[i,i] <- defaultDiagonal
+  }
+  for (i in 1:nrow(df)) {
+    s1 <- df[i, "species1"]
+    s2 <- df[i, "species2"]
+    if(s1 %in% species)
+      m[s1, s2] <- df[i, column]
+  }
+  m
+}
+```
+
+
+##Thermococci: Percent Identity and Strand Randomisation Tree
+```{r}
+m <- makeMatrix(df, "percent_identity_global", 100, 50)
+hclust <- hclust(dist(m), method = "complete")
+dend <- as.dendrogram(hclust)
+m1 <- makeMatrix(df, "index_avg_strandRand", 100, 50)
+
+extractStrandRandIDs <- function(node, tibble, matrix, fun = mean) {
+  children <- child(tibble, node)
+  stopifnot(nrow(children) == 2)
+  left_side_node  <- children[1, "node", drop = TRUE]
+  right_side_node <- children[2, "node", drop = TRUE]
+  tipLabels <- function(node, tibble) {
+    tipLabel <- tibble[node,"label", drop = TRUE]
+    if(!is.na(tipLabel)) return(tipLabel)
+    offspring(tibble, node)$label |> Filter(complete.cases, x=_)
+  }
+  left_side_species  <- tipLabels(left_side_node,  tibble)
+  right_side_species <- tipLabels(right_side_node, tibble)
+  comparison <- matrix[left_side_species, right_side_species, drop=F]
+  strandRand <- fun(comparison)
+  strandRand
+}
+
+extractPercentID <- function(node, tibble, matrix, fun = mean) {
+  children <- child(tibble, node)
+  stopifnot(nrow(children) == 2)
+  left_side_node  <- children[1, "node", drop = TRUE]
+  right_side_node <- children[2, "node", drop = TRUE]
+  tipLabels <- function(node, tibble) {
+    tipLabel <- tibble[node,"label", drop = TRUE]
+    if(!is.na(tipLabel)) return(tipLabel)
+    offspring(tibble, node)$label |> Filter(complete.cases, x=_)
+  }
+  left_side_species  <- tipLabels(left_side_node,  tibble)
+  right_side_species <- tipLabels(right_side_node, tibble)
+  comparison <- matrix[left_side_species, right_side_species, drop=F]
+  percentID <- fun(comparison)
+  percentID
+}
+
+as_tibble(as.phylo(dend)) -> td
+sRIs <- unique(td$parent) |> sort() |> purrr::set_names() |> sapply(extractStrandRandIDs, td, m1)
+pIDs <- unique(td$parent) |> sort() |> purrr::set_names() |> sapply(extractPercentID, td, m)
+td$strandRand <- NA
+td$percentID <- NA
+td[names(sRIs), "strandRand"] <- unname(sRIs)
+td[names(pIDs), "percentID"] <- unname(pIDs)
+
+##Find Node Numbers
+ggtree(as.treedata(td), branch.length='none') + 
+  geom_tiplab(as_ylab=TRUE) + 
+  geom_text(aes(label=node))
+
+##No Branch Length
+td2 <- groupClade(td, c(33, 38, 39))
+
+nbl_therm <- ggtree(as.treedata(td2), branch.length = "none") +
+  ggtitle("Thermococci: Percent Identity & Strand Randomisation Index (no branch length)") +
+  geom_tippoint(aes(color=group), show.legend = FALSE) +
+  scale_color_manual(values=c("black", "red", "orange", "yellow2")) +
+  new_scale_colour() +
+  geom_tiplab(as_ylab=TRUE) +
+  geom_label(aes(label=round(strandRand, digit = 2), color = strandRand), label.size = 0.25, size = 3.5, na.rm = TRUE, label.padding = unit(0.15, "lines"), nudge_y = 0.3) +
+  scale_color_viridis(name = "Strand Randomisation Index") +
+  new_scale_colour() +
+  geom_label(aes(label=round(percentID, digit = 1), color = percentID), label.size = 0.25, size = 3.5, na.rm = TRUE, label.padding = unit(0.15, "lines"), nudge_y = -0.3) +
+  scale_color_viridis(option="magma", name = "Percent Identity")
+
+viewClade(nbl_therm, MRCA(nbl_therm, "Pyrococcus_furiosus_DSM_3638", "Thermococcus_radiotolerans"))
+
+##With Branch Length
+bl_therm <- ggtree(as.treedata(td2)) + 
+  ggtitle("Thermococci: Percent Identity & Strand Randomisation Index") +
+  geom_tippoint(aes(color=group), show.legend = FALSE) +
+  scale_color_manual(values=c("black", "red", "orange", "yellow2")) +
+  new_scale_colour() +
+  geom_tiplab(as_ylab=TRUE) + 
+  geom_label(aes(label=round(strandRand, digit = 2), color = strandRand), label.size = 0.25, size = 3.5, na.rm = TRUE, label.padding = unit(0.1, "lines"), nudge_y = 0.2) +
+  scale_color_viridis(name = "Strand Randomisation Index") +
+  new_scale_colour() +
+  geom_label(aes(label=round(percentID, digit = 1), color = percentID), label.size = 0.25, size = 3.5, na.rm = TRUE, label.padding = unit(0.1, "lines"), nudge_y = -0.2) +
+  scale_color_viridis(option="magma", name = "Percent Identity")
+
+viewClade(bl_therm, MRCA(bl_therm, "Pyrococcus_furiosus_DSM_3638", "Thermococcus_radiotolerans"))
+
+```
+

@@ -1,8 +1,8 @@
 ---
-title: "thermococci-tree"
+title: "fungi-tree"
 output: html_document
 ---
-##Packages
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 devtools::install_github("brennern/ScrambledTreeBuilder")
@@ -25,23 +25,23 @@ library("readr")
 ```
 
 
-##Thermococci Data
+##Halobacteria Data
 ```{r}
 params <- list()
-params$resultsDir <- '/flash/LuscombeU/noa/thermococci/results/genomicbreaks'
+params$resultsDir <- '/flash/LuscombeU/noa/fungi/results/genomicbreaks'
 yamlFiles <- list.files(params$resultsDir, pattern = "*.yaml", full.names = TRUE)
 names(yamlFiles) <- yamlFiles |> basename() |> sub(pat = ".yaml", rep="")
 
-ThermococciDataFrame <- formatStats(yamlFiles)
+FungiDataFrame <- formatStats(yamlFiles)
 
 valuesToBuildTheTree <- "percent_identity_global"
-treeMatrix <- makeMatrix(ThermococciDataFrame, valuesToBuildTheTree, 100, 50)
+treeMatrix <- makeMatrix(FungiDataFrame, valuesToBuildTheTree, 100, 50)
 valuesToPlaceOnLabels <- "index_avg_strandRand"
-valueMatrix <- makeMatrix(ThermococciDataFrame, valuesToPlaceOnLabels, 1, 0.5)
+valueMatrix <- makeMatrix(FungiDataFrame, valuesToPlaceOnLabels, 1, 0.5)
 ```
 
 
-##Thermococci Percent Identity & Strand Randomisation Tree
+##Halobacteria Percent Identity & Strand Randomisation Tree
 ```{r}
 HClust <- hclust(dist(treeMatrix), method = "complete")
 Tibble <- tidytree::as_tibble(tidytree::as.phylo(HClust))
@@ -49,6 +49,5 @@ tibbleWithValue <- makeValueTibble(Tibble, valueMatrix)
 tibbleWithValue2 <- makeValueTibble(tibbleWithValue, treeMatrix)
 
 Tree <- visualizeTree(tibbleWithValue, tibbleWithValue$value)
-Tree + ggtitle(paste("Thermococci Tree built with", valuesToBuildTheTree, "and labelled with", valuesToPlaceOnLabels))
+Tree + ggtitle(paste("Fungi tree built with", valuesToBuildTheTree, "and labelled with", valuesToPlaceOnLabels))
 ```
-

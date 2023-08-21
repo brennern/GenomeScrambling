@@ -1,5 +1,5 @@
 ---
-title: "thermococci-tree"
+title: "enterobacteriaceae-tree"
 output: html_document
 ---
 ##Packages
@@ -25,23 +25,23 @@ library("readr")
 ```
 
 
-##Thermococci Data
+##Enterobacteriaceae Data
 ```{r}
 params <- list()
-params$resultsDir <- '/flash/LuscombeU/noa/thermococci/results/genomicbreaks'
+params$resultsDir <- '/flash/LuscombeU/noa/bacteria/results/genomicbreaks'
 yamlFiles <- list.files(params$resultsDir, pattern = "*.yaml", full.names = TRUE)
 names(yamlFiles) <- yamlFiles |> basename() |> sub(pat = ".yaml", rep="")
 
-ThermococciDataFrame <- formatStats(yamlFiles)
+EnterobacteriaDataFrame <- formatStats(yamlFiles)
 
 valuesToBuildTheTree <- "percent_identity_global"
-treeMatrix <- makeMatrix(ThermococciDataFrame, valuesToBuildTheTree, 100, 50)
+treeMatrix <- makeMatrix(EnterobacteriaDataFrame, valuesToBuildTheTree, 100, 50)
 valuesToPlaceOnLabels <- "index_avg_strandRand"
-valueMatrix <- makeMatrix(ThermococciDataFrame, valuesToPlaceOnLabels, 1, 0.5)
+valueMatrix <- makeMatrix(EnterobacteriaDataFrame, valuesToPlaceOnLabels, 1, 0.5)
 ```
 
 
-##Thermococci Percent Identity & Strand Randomisation Tree
+##Enterobacteriaceae Percent Identity & Strand Randomisation Tree
 ```{r}
 HClust <- hclust(dist(treeMatrix), method = "complete")
 Tibble <- tidytree::as_tibble(tidytree::as.phylo(HClust))
@@ -49,6 +49,5 @@ tibbleWithValue <- makeValueTibble(Tibble, valueMatrix)
 tibbleWithValue2 <- makeValueTibble(tibbleWithValue, treeMatrix)
 
 Tree <- visualizeTree(tibbleWithValue, tibbleWithValue$value)
-Tree + ggtitle(paste("Thermococci Tree built with", valuesToBuildTheTree, "and labelled with", valuesToPlaceOnLabels))
+Tree + ggtitle(paste("Enterobacteriaceae Tree built with", valuesToBuildTheTree, "and labelled with", valuesToPlaceOnLabels))
 ```
-

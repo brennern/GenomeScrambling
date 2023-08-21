@@ -50,7 +50,7 @@ tibbleWithValue <- makeValueTibble(Tibble, valueMatrix)
 tibbleWithValue2 <- makeValueTibble(tibbleWithValue, treeMatrix)
 
 Tree <- visualizeTree(tibbleWithValue, tibbleWithValue$value)
-Tree + ggtitle(paste("Tree build with", valuesToBuildTheTree, "and labelled with", valuesToPlaceOnLabels))
+Tree + ggtitle(paste("Halobacteria tree built with", valuesToBuildTheTree, "and labelled with", valuesToPlaceOnLabels))
 ```
 
 

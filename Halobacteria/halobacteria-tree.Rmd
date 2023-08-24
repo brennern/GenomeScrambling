@@ -1,28 +1,12 @@
 ---
-title: "halobacteria-pID&strRand"
+title: "halobacteria-tree"
 output: html_document
-date: "2023-06-29"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 devtools::install_github("brennern/ScrambledTreeBuilder")
 library("ScrambledTreeBuilder")
-library("GenomicBreaks") |> suppressPackageStartupMessages()
-library("ggplot2")
-library("pheatmap")
-library("plotly")
-library("dplyr")
-library("dendextend")
-library("BiocManager")
-library("ggtree")
-library("phytools")
-library("ape")
-library("rrapply")
-library("tidytree")
-library("viridis")
-library("ggnewscale")
-library("readr")
 ```
 
 
@@ -50,46 +34,8 @@ tibbleWithValue <- makeValueTibble(Tibble, valueMatrix)
 tibbleWithValue2 <- makeValueTibble(tibbleWithValue, treeMatrix)
 
 Tree <- visualizeTree(tibbleWithValue, tibbleWithValue$value)
-Tree + ggtitle(paste("Halobacteria tree built with", valuesToBuildTheTree, "and labelled with", valuesToPlaceOnLabels))
+
+Tree + 
+  ggtitle(paste("Halobacteria tree built with", valuesToBuildTheTree, "and labelled with", valuesToPlaceOnLabels)) +
+  viridis::scale_color_viridis(name = valuesToPlaceOnLabels)
 ```
-
-
-##Tree Building Customization
-```{r}
-##Find Node Numbers
-ggtree(as.treedata(td), branch.length='none') + 
-  geom_tiplab(as_ylab=TRUE) + 
-  geom_text(aes(label=node))
-
-##No Branch Length
-td2 <- groupClade(td, c(100, 102, 104, 107, 111, 116, 118, 119))
-
-nbl_hal <- ggtree(as.treedata(td2), branch.length = "none") +
-  ggtitle("Halobacteria: Percent Identity & Strand Randomisation Index (no branch length)") +
-  geom_tippoint(aes(color=group), show.legend = FALSE) +
-  scale_color_manual(values=c("black", "red3", "orange3", "yellow2", "green3", "blue3","purple3", "maroon3", "pink3")) +
-  new_scale_colour() +
-  geom_tiplab(as_ylab=TRUE) +
-  geom_label(aes(label=round(strandRand, digit = 2), color = strandRand), label.size = 0.25, size = 2, na.rm = TRUE, label.padding = unit(0.15, "lines"), nudge_y = 0.5) +
-  scale_color_viridis(name = "Strand Randomisation Index") +
-  new_scale_colour() +
-  geom_label(aes(label=round(percentID, digit = 1), color = percentID), label.size = 0.25, size = 2, na.rm = TRUE, label.padding = unit(0.15, "lines"), nudge_y = -0.5) +
-  scale_color_viridis(option="magma", name = "Percent Identity")
-nbl_hal
-
-##With Branch Length
-bl_hal <- ggtree(as.treedata(td2)) +
-  ggtitle("Halobacteria: Percent Identity & Strand Randomisation Index") +
-  geom_tippoint(aes(color=group), show.legend = FALSE) +
-  scale_color_manual(values=c("black", "red3", "orange3", "yellow2", "green3", "blue3","purple3", "maroon3", "pink3")) +
-  new_scale_colour() +
-  geom_tiplab(as_ylab=TRUE) + 
-  geom_label(aes(label=round(strandRand, digit = 2), color = strandRand), label.size = 0.25, size = 1.75, na.rm = TRUE, label.padding = unit(0.1, "lines"), nudge_y = 0.5) +
-  scale_color_viridis(name = "Strand Randomisation Index") +
-  new_scale_colour() +
-  geom_label(aes(label=round(percentID, digit = 1), color = percentID), label.size = 0.25, size = 1.75, na.rm = TRUE, label.padding = unit(0.1, "lines"), nudge_y = -0.5) +
-  scale_color_viridis(option="magma", name = "Percent Identity")
-bl_hal
-
-```
-

@@ -7,25 +7,10 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 devtools::install_github("brennern/ScrambledTreeBuilder")
 library("ScrambledTreeBuilder")
-library("GenomicBreaks") |> suppressPackageStartupMessages()
-library("ggplot2")
-library("pheatmap")
-library("plotly")
-library("dplyr")
-library("dendextend")
-library("BiocManager")
-library("ggtree")
-library("phytools")
-library("ape")
-library("rrapply")
-library("tidytree")
-library("viridis")
-library("ggnewscale")
-library("readr")
 ```
 
 
-##Halobacteria Data
+##Fungi Data
 ```{r}
 params <- list()
 params$resultsDir <- '/flash/LuscombeU/noa/fungi/results/genomicbreaks'
@@ -41,7 +26,7 @@ valueMatrix <- makeMatrix(FungiDataFrame, valuesToPlaceOnLabels, 1, 0.5)
 ```
 
 
-##Halobacteria Percent Identity & Strand Randomisation Tree
+##Fungi Percent Identity & Strand Randomisation Tree
 ```{r}
 HClust <- hclust(dist(treeMatrix), method = "complete")
 Tibble <- tidytree::as_tibble(tidytree::as.phylo(HClust))
@@ -49,5 +34,8 @@ tibbleWithValue <- makeValueTibble(Tibble, valueMatrix)
 tibbleWithValue2 <- makeValueTibble(tibbleWithValue, treeMatrix)
 
 Tree <- visualizeTree(tibbleWithValue, tibbleWithValue$value)
-Tree + ggtitle(paste("Fungi tree built with", valuesToBuildTheTree, "and labelled with", valuesToPlaceOnLabels))
+
+Tree + 
+  ggtitle(paste("Fungi tree built with", valuesToBuildTheTree, "and labelled with", valuesToPlaceOnLabels)) +
+  viridis::scale_color_viridis(name = valuesToPlaceOnLabels)
 ```

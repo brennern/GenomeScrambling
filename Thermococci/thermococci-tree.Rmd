@@ -7,21 +7,6 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 devtools::install_github("brennern/ScrambledTreeBuilder")
 library("ScrambledTreeBuilder")
-library("GenomicBreaks") |> suppressPackageStartupMessages()
-library("ggplot2")
-library("pheatmap")
-library("plotly")
-library("dplyr")
-library("dendextend")
-library("BiocManager")
-library("ggtree")
-library("phytools")
-library("ape")
-library("rrapply")
-library("tidytree")
-library("viridis")
-library("ggnewscale")
-library("readr")
 ```
 
 
@@ -49,6 +34,9 @@ tibbleWithValue <- makeValueTibble(Tibble, valueMatrix)
 tibbleWithValue2 <- makeValueTibble(tibbleWithValue, treeMatrix)
 
 Tree <- visualizeTree(tibbleWithValue, tibbleWithValue$value)
-Tree + ggtitle(paste("Thermococci Tree built with", valuesToBuildTheTree, "and labelled with", valuesToPlaceOnLabels))
+
+Tree + 
+  ggtitle(paste("Thermococci tree built with", valuesToBuildTheTree, "and labelled with", valuesToPlaceOnLabels)) +
+  viridis::scale_color_viridis(name = valuesToPlaceOnLabels)
 ```
 

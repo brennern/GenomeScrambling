@@ -5,16 +5,12 @@ output: html_document
 ##Packages
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library("tibble")
+devtools::install_github("brennern/ScrambledTreeBuilder")
+library("ScrambledTreeBuilder")
 library("GenomicBreaks") |> suppressPackageStartupMessages()
-library("ggplot2")
 library("pheatmap")
 library("plotly")
 library("dplyr")
-library("dendextend")
-library("BiocManager")
-library("ggtree")
-
 ```
 
 
@@ -27,125 +23,107 @@ names(yamlFiles) <- yamlFiles |> basename() |> sub(pat = ".yaml", rep="")
 ```
 
 
-##getStats
-```{r}
-getStats <- function(file) {
-  y <- yaml::read_yaml(file) |> yaml::yaml.load()
-  unlist(y)
-}
-```
-
 ##Data Formatting
 ```{r}
-df <- do.call(rbind, lapply(yamlFiles, getStats)) |> as.data.frame()
-df <- df[,colSums(df, na.rm = TRUE) !=0]
-df$species1 <- strsplit(rownames(df), "___") |> lapply(\(.) .[1]) |> unlist()
-df$species2 <- strsplit(rownames(df), "___") |> lapply(\(.) .[2]) |> unlist()
+FungiDataFrame <- formatStats(yamlFiles)
 
-df <- df[df$species1 != df$species2,]
-```
-
-
-##makeMatrix
-```{r}
-makeMatrix <- function(df, column, defaultDiagonal = 100, defaultValue = NA) {
-  species <- unique(df$species2)
-  m <- matrix(defaultValue, nrow=length(species), ncol=length(species))
-  colnames(m) <- rownames(m) <- species
-  for (i in 1:length(species)) {
-    m[i,i] <- defaultDiagonal
-  }
-  for (i in 1:nrow(df)) {
-    s1 <- df[i, "species1"]
-    s2 <- df[i, "species2"]
-    if(s1 %in% species)
-      m[s1, s2] <- df[i, column]
-  }
-  m
-}
+valuesToBuildTheTree <- "percent_identity_global"
+treeMatrix <- makeMatrix(FungiDataFrame, valuesToBuildTheTree, 100, 50)
+valuesToPlaceOnLabels <- "index_avg_strandRand"
+valueMatrix <- makeMatrix(FungiDataFrame, valuesToPlaceOnLabels, 1, 0.5)
 ```
 
 
 ##Percent Identity and Mismatches
 ```{r}
-df$percent_identity_global   <- df$matches_number_Total    / df$aligned_length_Total * 100
-df$percent_mismatches_global <- df$mismatches_number_Total / df$aligned_length_Total * 100
-ggplot(df) + geom_point() + aes(percent_identity_global,  percent_mismatches_global)
+FungiDataFrame$percent_identity_global <- FungiDataFrame$aligned_matches_bestpair_Total / FungiDataFrame$aligned_length_bestpair_Total * 100
+
+FungiDataFrame$percent_mismatches_global <- FungiDataFrame$mismatching_aligned_bestpair_Total / FungiDataFrame$aligned_length_bestpair_Total * 100
+
+ggplot(FungiDataFrame) + geom_point() + aes(percent_identity_global,  percent_mismatches_global)
 ```
 
 
 ##Percent Identity Global
 ```{r}
-m <- makeMatrix(df, "percent_identity_global")
-pheatmap::pheatmap(as.matrix(cluster::daisy(m)), fontsize_row = 5, fontsize_col = 5)
-m <- makeMatrix(df, "percent_identity_global", 100, 50)
-pheatmap::pheatmap(as.matrix(m), sym=T, fontsize_row = 5, fontsize_col = 5)
+pheatmap::pheatmap(as.matrix(cluster::daisy(treeMatrix)), fontsize_row = 5, fontsize_col = 5)
 
+pheatmap::pheatmap(as.matrix(treeMatrix), sym=T, fontsize_row = 5, fontsize_col = 5)
 ```
 
 
 ##Fraction of Genome Aligned
 ```{r}
-df$fraction_genome_aligned_target <- df$aligned_target_Total / df$guessed_target_length * 100
-df$fraction_genome_aligned_query  <- df$aligned_query_Total  / df$guessed_query_length  * 100
-df$fraction_genome_aligned_avg    <- (df$fraction_genome_aligned_target + df$fraction_genome_aligned_query) / 2
+FungiDataFrame$fraction_genome_aligned_target <- FungiDataFrame$aligned_width_target_bestpair_Total / FungiDataFrame$guessed_target_length_bestpair_Total * 100
 
-ggplot(df) + geom_point() + aes(percent_mismatches_global, fraction_genome_aligned_avg, col = percent_identity_global)
-ggplot(df) + geom_point() + aes(percent_identity_global,   fraction_genome_aligned_avg, col = percent_mismatches_global)
+FungiDataFrame$fraction_genome_aligned_query  <- FungiDataFrame$aligned_width_query_bestpair_Total  / FungiDataFrame$guessed_query_length_bestpair_Total  * 100
+
+FungiDataFrame$fraction_genome_aligned_avg    <- (FungiDataFrame$fraction_genome_aligned_target + FungiDataFrame$fraction_genome_aligned_query) / 2
+
+ggplot(FungiDataFrame) + geom_point() + aes(percent_mismatches_global, fraction_genome_aligned_avg, col = percent_identity_global)
+
+ggplot(FungiDataFrame) + geom_point() + aes(percent_identity_global,   fraction_genome_aligned_avg, col = percent_mismatches_global)
 ```
 
 
 ##Fraction of Genome Chained
 ```{r}
-df$fraction_genome_chained_target <- df$chain_target_Total / df$guessed_target_length * 100
-df$fraction_genome_chained_query  <- df$chain_query_Total  / df$guessed_query_length  * 100
-df$fraction_genome_chained_avg    <- (df$fraction_genome_chained_target + df$fraction_genome_chained_query) / 2
+FungiDataFrame$fraction_genome_chained_target <- FungiDataFrame$chain_width_target_bestpair_Total / FungiDataFrame$guessed_target_length_bestpair_Total * 100
+FungiDataFrame$fraction_genome_chained_query  <- FungiDataFrame$chain_width_query_bestpair_Total / FungiDataFrame$guessed_query_length_bestpair_Total  * 100
+FungiDataFrame$fraction_genome_chained_avg    <- (FungiDataFrame$fraction_genome_chained_target + FungiDataFrame$fraction_genome_chained_query) / 2
 
-ggplot(df) + geom_point() + aes(percent_mismatches_global, fraction_genome_chained_avg, col = percent_identity_global)
+ggplot(FungiDataFrame) + geom_point() + aes(percent_mismatches_global, fraction_genome_chained_avg, col = percent_identity_global)
 ```
 
 
 ##Width of Aligned Regions
 ```{r}
 ##Aligned Width 1
-ggplot(df) + geom_point() + aes(percent_identity_global, aligned_length_Mean, col = percent_mismatches_global)
-ggplot(df) + geom_point() + aes(percent_mismatches_global, aligned_length_Mean, col = percent_identity_global)
+ggplot(FungiDataFrame) + geom_point() + aes(percent_identity_global, aligned_length_Mean, col = percent_mismatches_global)
+ggplot(FungiDataFrame) + geom_point() + aes(percent_mismatches_global, aligned_length_Mean, col = percent_identity_global)
 
 ##Aligned Width 2
-ggplot(df) + geom_point() + aes(percent_identity_global, aligned_target_Mean / guessed_target_length, col = percent_mismatches_global) + scale_y_log10()
-ggplot(df) + geom_point() + aes(percent_identity_global, aligned_query_Mean  / guessed_query_length, col = percent_mismatches_global) + scale_y_log10()
-ggplot(df) + geom_point() + aes(percent_identity_global, aligned_length_Mean  / (guessed_target_length + guessed_query_length) / 2, col = percent_mismatches_global)  + scale_y_log10()
+ggplot(FungiDataFrame) + geom_point() + aes(percent_identity_global, aligned_width_target_bestpair_Mean / guessed_target_length_bestpair_Total, col = percent_mismatches_global) + scale_y_log10()
+
+ggplot(FungiDataFrame) + geom_point() + aes(percent_identity_global, aligned_width_query_bestpair_Mean  / guessed_query_length_bestpair_Total, col = percent_mismatches_global) + scale_y_log10()
+
+ggplot(FungiDataFrame) + geom_point() + aes(percent_identity_global, aligned_length_bestpair_Mean  / (guessed_target_length_bestpair_Total + guessed_query_length_bestpair_Total) / 2, col = percent_mismatches_global)  + scale_y_log10()
 ```
 
 
 ##Length of the Chains
 ```{r}
-ggplot(df) + geom_point() + aes(percent_identity_global, chain_target_Mean, col = percent_mismatches_global) + scale_y_log10()
-ggplot(df) + geom_point() + aes(percent_mismatches_global, chain_target_Mean, col = percent_identity_global) + scale_y_log10()
+ggplot(FungiDataFrame) + geom_point() + aes(percent_identity_global, chain_width_target_bestpair_Mean, col = percent_mismatches_global) + scale_y_log10()
 
-ggplot(df) + geom_point() + aes(percent_identity_global, chain_target_Mean / guessed_target_length, col = percent_mismatches_global) + scale_y_log10()
-ggplot(df) + geom_point() + aes(percent_identity_global, chain_query_Mean  / guessed_query_length, col = percent_mismatches_global) + scale_y_log10()
+ggplot(FungiDataFrame) + geom_point() + aes(percent_mismatches_global, chain_width_target_bestpair_Mean, col = percent_identity_global) + scale_y_log10()
+
+ggplot(FungiDataFrame) + geom_point() + aes(percent_identity_global, chain_width_target_bestpair_Mean / guessed_target_length_bestpair_Mean, col = percent_mismatches_global) + scale_y_log10()
+
+ggplot(FungiDataFrame) + geom_point() + aes(percent_identity_global, chain_width_query_bestpair_Mean  / guessed_query_length_bestpair_Mean, col = percent_mismatches_global) + scale_y_log10()
 ```
 
 
 ##Indices
 ```{r}
-df$index_avg_synteny      <- ( df$index_synteny_target + df$index_synteny_query ) / 2
-df$index_avg_correlation  <- ( df$index_correlation_target + df$index_correlation_query ) / 2
-df$index_avg_GOCvicinity4 <- ( df$index_GOCvicinity4_target + df$index_GOCvicinity4_query ) / 2
-df$index_avg_strandRand   <- ( df$index_strandRand_target + df$index_strandRand_query ) / 2
+FungiDataFrame$index_avg_synteny <- (FungiDataFrame$index_synteny_target_bestpair + FungiDataFrame$index_synteny_query_bestpair ) / 2
 
-df[,grepl("index_avg", colnames(df))] |> pairs()
+FungiDataFrame$index_avg_correlation <- (FungiDataFrame$index_correlation_target_bestpair + FungiDataFrame$index_correlation_query_bestpair ) / 2
+
+FungiDataFrame$index_avg_GOCvicinity4 <- (FungiDataFrame$index_GOCvicinity4_target_bestpair + FungiDataFrame$index_GOCvicinity4_query_bestpair ) / 2
+
+FungiDataFrame$index_avg_strandRand <- (FungiDataFrame$index_strandRand_target_bestpair + FungiDataFrame$index_strandRand_query_bestpair ) / 2
+
+FungiDataFrame[,grepl("index_avg", colnames(FungiDataFrame))] |> pairs()
 ```
 
 
 ##Percent Identity Vs. Strand Randomisation Index Graph
 ```{r}
-df$lab <- ifelse(df$species1 > df$species2,
-       paste(df$species1, df$species2, sep = "\n"),
-       paste(df$species2, df$species1, sep = "\n"))
+FungiDataFrame$lab <- ifelse(FungiDataFrame$species1 > FungiDataFrame$species2,
+       paste(FungiDataFrame$species1, FungiDataFrame$species2, sep = "\n"),
+       paste(FungiDataFrame$species2, FungiDataFrame$species1, sep = "\n"))
 
-df |>
+FungiDataFrame |>
   #dplyr::filter(index_avg_synteny > 0.25) |>
   dplyr::group_by(lab) |>
   dplyr::summarise(percent_identity_global = mean(percent_identity_global),
@@ -157,7 +135,7 @@ df |>
     scale_x_continuous("Percent Identity") +
     scale_y_continuous("Strand Randomisation Index") +
     theme_bw() +
-    ggtitle("Halobacteria: Percent Identity Vs. Strand Randomisation Index") +
+    ggtitle("Fungi: Percent Identity Vs. Strand Randomisation Index") +
     geom_text() -> gg
     plotly::ggplotly(gg)
 ```
@@ -165,7 +143,7 @@ df |>
 
 ##Similarity Vs. Synteny Index
 ```{r}
-ggplot(df) + theme_bw() +
+ggplot(FungiDataFrame) + theme_bw() +
   aes(percent_identity_global, index_avg_synteny, col = percent_mismatches_global) +
   xlab("Identity between aligned regions (%)") +
   ylab("Synteny index") +
@@ -175,7 +153,7 @@ ggplot(df) + theme_bw() +
 
 ##Similarity Vs. Correlation Index
 ```{r}
-ggplot(df) + theme_bw() +
+ggplot(FungiDataFrame) + theme_bw() +
   aes(percent_identity_global, index_avg_strandRand, col = percent_mismatches_global) +
   xlab("Identity between aligned regions (%)") +
   ylab("Strand randomisation index") +
@@ -185,7 +163,7 @@ ggplot(df) + theme_bw() +
 
 ##Gene Order Correlation
 ```{r}
-ggplot(df) +
+ggplot(FungiDataFrame) +
   aes(percent_identity_global, index_avg_GOCvicinity4) +
   aes(color = species1) +
   xlab("Similarity between aligned regions") +

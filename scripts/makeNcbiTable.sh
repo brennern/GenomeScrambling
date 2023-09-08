@@ -1,8 +1,28 @@
-#!/bin/bash
+#!/bin/bash -e
+# Main author: Michael Mansfield
 
-#By Dr. Michael Mansfield and Dr. Charles Plessy at OIST
+if [ $# -eq 0 ]
+then
+  printf "Usage:   $0 taxon-name completeness source options\n"
+  printf "Example: NCBI_API_KEY=pasteYourKeyHere $0 Tunicata chromosome,complete genbank noref\n"
+  printf "  default completenes: complete\n"
+  printf "  default source: refseq\n"
+  printf "  default options: '--reference'.  Use 'noref' for no options.\n"
+  exit 1
+fi
 
 # This snippet will not work unless NCBI Datasets and the NCBI EUtils are installed.
+
+TAXON=$1
+COMPLETENESS=${2-complete}
+SOURCE=${3-refseq}
+case "$4" in
+	"")      OTHEROPTS="--reference" ;;
+	"noref") OTHEROPTS="" ;;
+	*)       OTHEROPTS="$4" ;;
+esac
+# Undocumented option for debugging
+DATASETS_ONLY=$5
 
 if ! command -v datasets >/dev/null 2>&1; then
   printf "datasets command not found\n"
@@ -46,17 +66,22 @@ if ! command -v xtract >/dev/null 2>&1; then
   exit 1
 fi
 
-datasets summary genome taxon 'TAXON_NAME' \
-	--assembly-source refseq \
+datasets summary genome taxon "$TAXON" \
+	--assembly-source $SOURCE \
 	--as-json-lines \
-	--assembly-level complete \
-	--reference |
+	--assembly-level $COMPLETENESS \
+	$OTHEROPTS |
 		dataformat tsv genome \
-			--fields accession,assminfo-name,annotinfo-name,annotinfo-release-date,organism-name,organism-tax-id > ncbi_datasets.tsv
+			--fields accession,assminfo-name,organism-name,organism-tax-id > ncbi_datasets.tsv
 
-printf "id\tfile\tGenomeID\tBinomial\tAccNum\tTaxID\tPMID\tKingdom\tPhylum\tClass\tOrder\tFamily\tGenus\tSpecies\tSubrank1\tSubrank2\n" > TAXON_NAME.tsv
+printf "id\tfile\tGenomeID\tBinomial\tAccNum\tTaxID\tPMID\tKingdom\tPhylum\tClass\tOrder\tFamily\tGenus\tSpecies\tSubrank1\tSubrank2\n" > ${TAXON}.tsv
 
-cat ncbi_datasets.tsv | grep -v '^Assembly' | while IFS=$'\t' read ASSEMBLYACC ASSEMBLYNAME ANNOTATIONNAME ANNOTATIONRELEASE ORGNAME TAXID;
+if [ "$DATASETS_ONLY" = "datasets_only" ]
+then
+	exit 0
+fi
+
+cat ncbi_datasets.tsv | grep -v '^Assembly' | tr '\t' '\034' | while IFS=$'\034' read ASSEMBLYACC ASSEMBLYNAME ORGNAME TAXID;
 do
 	# Split up the assembly name into chunks to stitch together the link to the NCBI FTP server programmatically.
 	# So far, this works for the ~200 genomes here. It may not work for others.
@@ -80,6 +105,6 @@ do
 	# what Subrank1 and Subrank2 are (because it could be either a subspecies or a serotype).
 	TAXONOMY=$(efetch -db taxonomy -id \""${TAXID}"\" -format xml </dev/null | xtract -pattern Taxon -element Taxon -def "NA" -block "*/Taxon" -if Rank -equals "superkingdom" -or Rank -equals "phylum" -or Rank -equals "class" -or Rank -equals "order" -or Rank -equals "family" -or Rank -equals "genus" -or Rank -equals "species" -or Rank -equals "subspecies" -or Rank -equals "serotype" -tab "____"  -sep ":" -element ScientificName)
 
-	echo -e ""${SAFEID}"\t"${LINK}"\t"${ASSEMBLYNAME}"\t"${ORGNAME}"\t"${ASSEMBLYACC}"\t"${TAXID}"\t"${PMIDS}"\t"${TAXONOMY}"" | sed 's/____/\t/g' >> TAXON_NAME.tsv
+	echo -e ""${SAFEID}"\t"${LINK}"\t"${ASSEMBLYNAME}"\t"${ORGNAME}"\t"${ASSEMBLYACC}"\t"${TAXID}"\t"${PMIDS}"\t"${TAXONOMY}"" | sed 's/____/\t/g' >> ${TAXON}.tsv
 	sleep 5s
 done 

@@ -1,5 +1,5 @@
 ---
-title: "Halobacteriales-tree-v2"
+title: "Fungi-Tree"
 output: html_document
 ---
 ## Packages
@@ -8,7 +8,7 @@ library(ScrambledTreeBuilder)
 library("GenomicBreaks") |> suppressPackageStartupMessages()
 
 params <- list()
-params$resultsDir <- '/flash/LuscombeU/noa/Halobacteriales_new/results/genomicbreaks'
+params$resultsDir <- '/bucket/LuscombeU/live/noa/fungi/results/genomicbreaks'
 yamlFiles <- list.files(params$resultsDir, pattern = "*.yaml", full.names = TRUE)
 names(yamlFiles) <- yamlFiles |> basename() |> sub(pat = ".yaml", rep="")
 
@@ -72,31 +72,6 @@ SubsettingTree <- SubsettingTree +
   viridis::scale_color_viridis(option = "magma", name = "Percent \nIdentity")
 
 ggtree::viewClade(SubsettingTree, ggtree::MRCA(SubsettingTree, "Halobacterium_hubeiense_GCA_001488575.1", "Halobacterium_wangiae_GCA_021249345.1"))
-```
-
-
-## GenomicBreaks Plot
-``` {r}
-circShift <- function(x, offset) {
-  xlength <- seqlengths(x)
-  x1 <- x[end(x)   < offset] |> shift(xlength - offset)
-  x2 <- x[start(x) >  offset] |>  shift(-offset)
-  c(x2,x1)
-  }
-
-Unscrambled <- load_genomic_breaks("/flash/LuscombeU/noa/Halobacteriales_new/Halobacterium_wangiae_GCA_021249345.1___Halobacterium_sp._DL1_GCA_000230955.3.07.postmasked.maf.gz")
-
-plotApairOfChrs(Unscrambled, main = "H. wangiae Vs. H. sp. DL1")
-pdf("UnscrambledGrantImage.pdf", width = 6, height = 3)
-Unscrambled |> circShift(1296273) |> plotApairOfChrs(main = "H. wangiae Vs. H. sp. DL1")
-dev.off()
- 
-Scrambled <- load_genomic_breaks("/flash/LuscombeU/noa/Halobacteriales_new/Halobacterium_noricense_GCA_021233435.1___Halobacterium_hubeiense_GCA_001488575.1.07.postmasked.maf.gz")
-
-plotApairOfChrs(Scrambled, main = "H. noricense Vs. H. hubeiense")
-pdf("ScrambledGrantImage.pdf", width = 6, height = 3)
-Scrambled |> plotApairOfChrs(main = "H. noricense Vs. H. hubeiense")
-dev.off()
 ```
 
 

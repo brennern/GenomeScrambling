@@ -1,5 +1,5 @@
 ---
-title: "Fungi-Tree"
+title: "Enterobacteria-Tree"
 output: html_document
 ---
 ## Packages
@@ -9,7 +9,7 @@ library("GenomicBreaks") |> suppressPackageStartupMessages()
 library(ggplot2)
 
 params <- list()
-params$resultsDir <- '/bucket/LuscombeU/live/noa/fungi/results/genomicbreaks'
+params$resultsDir <- '/bucket/LuscombeU/live/noa/bacteria/results/genomicbreaks'
 yamlFiles <- list.files(params$resultsDir, pattern = "*.yaml", full.names = TRUE)
 names(yamlFiles) <- yamlFiles |> basename() |> sub(pat = ".yaml", rep="")
 
@@ -40,13 +40,13 @@ tibbleWithMultipleValues <- makeValueTibble(tibbleWithStrandRand, percentIdentit
 StrandRandTree <- visualizeTree(tibbleWithStrandRand, tibbleWithStrandRand$Strand_Randomisation_Index, innerlabelsize = 1.75)
 
 StrandRandTree +
-  ggplot2::ggtitle(paste("Fungi: built with percent identity and plotted with strand randomisation index")) + 
+  ggplot2::ggtitle(paste("Enterobacteria: built with percent identity and plotted with strand randomisation index")) + 
   scale_color_gradientn(colours = c("#0D0887FF", "#3E049CFF", "#6300A7FF", "#8707A6FF", "#A62098FF", "#C03A83FF", "#D5546EFF", "#F58C46FF"), name = "Strand Randomisation Index")
 
 PercentIdentityTree <- visualizeTree(tibbleWithPercentIdentity, tibbleWithPercentIdentity$Percent_Identity, innerlabelsize = 1.75)
 
 PercentIdentityTree +
-  ggplot2::ggtitle(paste("Fungi: built and plotted with percent identity scores")) + 
+  ggplot2::ggtitle(paste("Enterobacteria: built and plotted with percent identity scores")) + 
   scale_color_gradientn(colours = c("#440154FF", "#482173FF", "#433E85FF", "#38598CFF", "#2D708EFF", "#25858EFF", "#1E9B8AFF", "#2BB07FFF", "#51C56AFF", "#85D54AFF", "#C2DF23FF"), name = "Percent Identity")
 
 ```
@@ -57,7 +57,7 @@ PercentIdentityTree +
 MultiValueTree <- visualizeTree(tibbleWithMultipleValues, tibbleWithMultipleValues$Strand_Randomisation_Index, valueround = 2, outerlabelsize = 0.2, innerlabelsize = 3.5, ynudge = 0.75)
 
 MultiValueTree +
-  ggplot2::ggtitle("Fungi: Percent Identity & Strand Randomisation") +
+  ggplot2::ggtitle("Enterobacteria: Percent Identity & Strand Randomisation") +
   viridis::scale_color_viridis(name = "Strand \nRandomisation") +
   ggnewscale::new_scale_colour() +
   ggtree::geom_label(ggtree::aes(label=round(Percent_Identity, digits = 3), color = Percent_Identity), label.size = 0.2, size = 3.5, na.rm = TRUE, label.padding = ggtree::unit(0.15, "lines"), nudge_y = -0.75) +
@@ -66,7 +66,7 @@ MultiValueTree +
 SubsettingTree <- visualizeTree(tibbleWithMultipleValues, tibbleWithMultipleValues$Strand_Randomisation_Index, valueround = 2, outerlabelsize = 0.2, innerlabelsize = 3.5, ynudge = .2)
 
 SubsettingTree <- SubsettingTree +
-  ggplot2::ggtitle("Fungi: Percent Identity & Strand Randomisation") +
+  ggplot2::ggtitle("Enterobacteria: Percent Identity & Strand Randomisation") +
   viridis::scale_color_viridis(name = "Strand \nRandomisation") +
   ggnewscale::new_scale_colour() +
   ggtree::geom_label(ggtree::aes(label=round(Percent_Identity, digits = 3), color = Percent_Identity), label.size = 0.2, size = 3.5, na.rm = TRUE, label.padding = ggtree::unit(0.15, "lines"), nudge_y = -.2) +
@@ -79,7 +79,7 @@ ggtree::viewClade(SubsettingTree, ggtree::MRCA(SubsettingTree, "", ""))
 ## Repeled Tree
 ``` {r}
 RepelTree <- ggtree::ggtree(tidytree::as.treedata(tibbleWithMultipleValues)) +
-  ggplot2::ggtitle("Fungi: Percent Identity & Strand Randomisation Index") +
+  ggplot2::ggtitle("Enterobacteria: Percent Identity & Strand Randomisation Index") +
   ggtree::geom_tiplab(as_ylab=TRUE) + 
   ggrepel::geom_label_repel(min.segment.length = 0, max.iter = 10000, aes(label=round(Strand_Randomisation_Index, digit = 2), color = Strand_Randomisation_Index), label.size = 0.25, size = 2, na.rm = TRUE, label.padding = unit(0.1, "lines"), nudge_y = 0.2) +
   viridis::scale_color_viridis(name = "Strand Randomisation Index") +

@@ -1,0 +1,115 @@
+---
+title: "Halobacteriales-tree-v2"
+output: html_document
+date: "2023-09-11"
+---
+## Packages
+```{r}
+library(ScrambledTreeBuilder)
+library("GenomicBreaks") |> suppressPackageStartupMessages()
+
+params <- list()
+params$resultsDir <- '/flash/LuscombeU/noa/Halobacteriales_new/results/genomicbreaks'
+yamlFiles <- list.files(params$resultsDir, pattern = "*.yaml", full.names = TRUE)
+names(yamlFiles) <- yamlFiles |> basename() |> sub(pat = ".yaml", rep="")
+
+exDataFrame <- formatStats(yamlFiles)
+```
+
+
+## Data
+```{r}
+valuesToBuildTheTree <- "percent_identity_global"
+treeMatrix <- makeMatrix(exDataFrame, valuesToBuildTheTree, 100, 50)
+strandRandValuesToPlaceOnLabels <- "index_avg_strandRand"
+strandRandMatrix <- makeMatrix(exDataFrame, strandRandValuesToPlaceOnLabels, 1, 0.5)
+percentIdentityMatrix <- makeMatrix(exDataFrame, "percent_identity_global", 100, 50)
+```
+```{r}
+HClust <- hclust(dist(treeMatrix), method = "complete")
+Tibble <- tidytree::as_tibble(tidytree::as.phylo(HClust))
+tibbleWithStrandRand <- makeValueTibble(Tibble, strandRandMatrix, colname = "Strand_Randomisation_Index")
+tibbleWithPercentIdentity <- makeValueTibble(Tibble, percentIdentityMatrix, colname = "Percent_Identity")
+
+tibbleWithMultipleValues <- makeValueTibble(tibbleWithStrandRand, percentIdentityMatrix, colname = "Percent_Identity")
+```
+
+
+## Single Value Trees
+```{r}
+StrandRandTree <- visualizeTree(tibbleWithStrandRand, tibbleWithStrandRand$Strand_Randomisation_Index, innerlabelsize = 1.75)
+
+StrandRandTree +
+  ggplot2::ggtitle(paste("Halobacteriales: built with percent identity and plotted with strand randomisation index")) + 
+  scale_color_gradientn(colours = c("#0D0887FF", "#3E049CFF", "#6300A7FF", "#8707A6FF", "#A62098FF", "#C03A83FF", "#D5546EFF", "#F58C46FF"), name = "Strand Randomisation Index")
+
+PercentIdentityTree <- visualizeTree(tibbleWithPercentIdentity, tibbleWithPercentIdentity$Percent_Identity, innerlabelsize = 1.75)
+
+PercentIdentityTree +
+  ggplot2::ggtitle(paste("Halobacteriales: built and plotted with percent identity scores")) + 
+  scale_color_gradientn(colours = c("#440154FF", "#482173FF", "#433E85FF", "#38598CFF", "#2D708EFF", "#25858EFF", "#1E9B8AFF", "#2BB07FFF", "#51C56AFF", "#85D54AFF", "#C2DF23FF"), name = "Percent Identity")
+
+```
+
+
+## Multi Value Trees
+```{r}
+MultiValueTree <- visualizeTree(tibbleWithMultipleValues, tibbleWithMultipleValues$Strand_Randomisation_Index, valueround = 2, outerlabelsize = 0.2, innerlabelsize = 3.5, ynudge = 2)
+
+MultiValueTree +
+  ggplot2::ggtitle("Halobacteriales: Percent Identity & Strand Randomisation") +
+  viridis::scale_color_viridis(name = "Strand \nRandomisation") +
+  ggnewscale::new_scale_colour() +
+  ggtree::geom_label(ggtree::aes(label=round(Percent_Identity, digits = 3), color = Percent_Identity), label.size = 0.2, size = 3.5, na.rm = TRUE, label.padding = ggtree::unit(0.15, "lines"), nudge_y = -2) +
+  viridis::scale_color_viridis(option = "magma", name = "Percent \nIdentity")
+
+SubsettingTree <- visualizeTree(tibbleWithMultipleValues, tibbleWithMultipleValues$Strand_Randomisation_Index, valueround = 2, outerlabelsize = 0.2, innerlabelsize = 3.5, ynudge = .2)
+
+SubsettingTree <- SubsettingTree +
+  ggplot2::ggtitle("Halobacteriales: Percent Identity & Strand Randomisation") +
+  viridis::scale_color_viridis(name = "Strand \nRandomisation") +
+  ggnewscale::new_scale_colour() +
+  ggtree::geom_label(ggtree::aes(label=round(Percent_Identity, digits = 3), color = Percent_Identity), label.size = 0.2, size = 3.5, na.rm = TRUE, label.padding = ggtree::unit(0.15, "lines"), nudge_y = -.2) +
+  viridis::scale_color_viridis(option = "magma", name = "Percent \nIdentity")
+
+ggtree::viewClade(SubsettingTree, ggtree::MRCA(SubsettingTree, "Halobacterium_hubeiense_GCA_001488575.1", "Halobacterium_wangiae_GCA_021249345.1"))
+```
+
+
+## GenomicBreaks Plot
+``` {r}
+circShift <- function(x, offset) {
+  xlength <- seqlengths(x)
+  x1 <- x[end(x)   < offset] |> shift(xlength - offset)
+  x2 <- x[start(x) >  offset] |>  shift(-offset)
+  c(x2,x1)
+  }
+
+Unscrambled <- load_genomic_breaks("/flash/LuscombeU/noa/Halobacteriales_new/Halobacterium_wangiae_GCA_021249345.1___Halobacterium_sp._DL1_GCA_000230955.3.07.postmasked.maf.gz")
+
+plotApairOfChrs(Unscrambled, main = "H. wangiae Vs. H. sp. DL1")
+pdf("UnscrambledGrantImage.pdf", width = 6, height = 3)
+Unscrambled |> circShift(1296273) |> plotApairOfChrs(main = "H. wangiae Vs. H. sp. DL1")
+dev.off()
+ 
+Scrambled <- load_genomic_breaks("/flash/LuscombeU/noa/Halobacteriales_new/Halobacterium_noricense_GCA_021233435.1___Halobacterium_hubeiense_GCA_001488575.1.07.postmasked.maf.gz")
+
+plotApairOfChrs(Scrambled, main = "H. noricense Vs. H. hubeiense")
+pdf("ScrambledGrantImage.pdf", width = 6, height = 3)
+Scrambled |> plotApairOfChrs(main = "H. noricense Vs. H. hubeiense")
+dev.off()
+```
+
+
+## Repeled Tree
+``` {r}
+RepelTree <- ggtree::ggtree(tidytree::as.treedata(tibbleWithMultipleValues)) +
+  ggplot2::ggtitle("Halobacteriales: Percent Identity & Strand Randomisation Index") +
+  ggtree::geom_tiplab(as_ylab=TRUE) + 
+  ggrepel::geom_label_repel(min.segment.length = 0, max.iter = 10000, aes(label=round(Strand_Randomisation_Index, digit = 2), color = Strand_Randomisation_Index), label.size = 0.25, size = 2, na.rm = TRUE, label.padding = unit(0.1, "lines"), nudge_y = 0.2) +
+  viridis::scale_color_viridis(name = "Strand Randomisation Index") +
+  ggnewscale::new_scale_colour() +
+  ggrepel::geom_label_repel(min.segment.length = 0, max.iter = 10000, aes(label=round(Percent_Identity, digit = 1), color = Percent_Identity), label.size = 0.25, size = 2, na.rm = TRUE, label.padding = unit(0.1, "lines"), nudge_y = -0.2) +
+  viridis::scale_color_viridis(option="magma", name = "Percent Identity")
+RepelTree
+```

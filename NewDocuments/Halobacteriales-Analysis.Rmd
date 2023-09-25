@@ -1,0 +1,173 @@
+---
+title: "Halobacteriales-Analysis"
+output: html_document
+---
+##Packages
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+devtools::install_github("brennern/ScrambledTreeBuilder")
+library("ScrambledTreeBuilder")
+library("GenomicBreaks") |> suppressPackageStartupMessages()
+library("pheatmap")
+library("plotly")
+library("dplyr")
+```
+
+
+##Load Data
+```{r}
+params <- list()
+params$resultsDir <- '/flash/LuscombeU/noa/Halobacteriales_new/results/genomicbreaks'
+yamlFiles <- list.files(params$resultsDir, pattern = "*.yaml", full.names = TRUE)
+names(yamlFiles) <- yamlFiles |> basename() |> sub(pat = ".yaml", rep="")
+```
+
+
+##Data Formatting
+```{r}
+DF <- formatStats(yamlFiles)
+
+valuesToBuildTheTree <- "percent_identity_global"
+treeMatrix <- makeMatrix(DF, valuesToBuildTheTree, 100, 50)
+valuesToPlaceOnLabels <- "index_avg_strandRand"
+valueMatrix <- makeMatrix(DF, valuesToPlaceOnLabels, 1, 0.5)
+```
+
+
+##Percent Identity and Mismatches
+```{r}
+DF$percent_identity_global <- DF$aligned_matches_bestpair_Total / DF$aligned_length_bestpair_Total * 100
+
+DF$percent_mismatches_global <- DF$mismatching_aligned_bestpair_Total / DF$aligned_length_bestpair_Total * 100
+
+ggplot(DF) + geom_point() + aes(percent_identity_global,  percent_mismatches_global)
+```
+
+
+##Percent Identity Global
+```{r}
+pheatmap::pheatmap(as.matrix(cluster::daisy(treeMatrix)), fontsize_row = 5, fontsize_col = 5)
+
+pheatmap::pheatmap(as.matrix(treeMatrix), sym=T, fontsize_row = 5, fontsize_col = 5)
+```
+
+
+##Fraction of Genome Aligned
+```{r}
+DF$fraction_genome_aligned_target <- DF$aligned_width_target_bestpair_Total / DF$guessed_target_length_bestpair_Total * 100
+
+DF$fraction_genome_aligned_query  <- DF$aligned_width_query_bestpair_Total  / DF$guessed_query_length_bestpair_Total  * 100
+
+DF$fraction_genome_aligned_avg    <- (DF$fraction_genome_aligned_target + DF$fraction_genome_aligned_query) / 2
+
+ggplot(DF) + geom_point() + aes(percent_mismatches_global, fraction_genome_aligned_avg, col = percent_identity_global)
+
+ggplot(DF) + geom_point() + aes(percent_identity_global,   fraction_genome_aligned_avg, col = percent_mismatches_global)
+```
+
+
+##Fraction of Genome Chained
+```{r}
+DF$fraction_genome_chained_target <- DF$chain_width_target_bestpair_Total / DF$guessed_target_length_bestpair_Total * 100
+DF$fraction_genome_chained_query  <- DF$chain_width_query_bestpair_Total / DF$guessed_query_length_bestpair_Total  * 100
+DF$fraction_genome_chained_avg    <- (DF$fraction_genome_chained_target + DF$fraction_genome_chained_query) / 2
+
+ggplot(DF) + geom_point() + aes(percent_mismatches_global, fraction_genome_chained_avg, col = percent_identity_global)
+```
+
+
+##Width of Aligned Regions
+```{r}
+##Aligned Width 1
+ggplot(DF) + geom_point() + aes(percent_identity_global, aligned_length_Mean, col = percent_mismatches_global)
+ggplot(DF) + geom_point() + aes(percent_mismatches_global, aligned_length_Mean, col = percent_identity_global)
+
+##Aligned Width 2
+ggplot(DF) + geom_point() + aes(percent_identity_global, aligned_width_target_bestpair_Mean / guessed_target_length_bestpair_Total, col = percent_mismatches_global) + scale_y_log10()
+
+ggplot(DF) + geom_point() + aes(percent_identity_global, aligned_width_query_bestpair_Mean  / guessed_query_length_bestpair_Total, col = percent_mismatches_global) + scale_y_log10()
+
+ggplot(DF) + geom_point() + aes(percent_identity_global, aligned_length_bestpair_Mean  / (guessed_target_length_bestpair_Total + guessed_query_length_bestpair_Total) / 2, col = percent_mismatches_global)  + scale_y_log10()
+```
+
+
+##Length of the Chains
+```{r}
+ggplot(DF) + geom_point() + aes(percent_identity_global, chain_width_target_bestpair_Mean, col = percent_mismatches_global) + scale_y_log10()
+
+ggplot(DF) + geom_point() + aes(percent_mismatches_global, chain_width_target_bestpair_Mean, col = percent_identity_global) + scale_y_log10()
+
+ggplot(DF) + geom_point() + aes(percent_identity_global, chain_width_target_bestpair_Mean / guessed_target_length_bestpair_Mean, col = percent_mismatches_global) + scale_y_log10()
+
+ggplot(DF) + geom_point() + aes(percent_identity_global, chain_width_query_bestpair_Mean  / guessed_query_length_bestpair_Mean, col = percent_mismatches_global) + scale_y_log10()
+```
+
+
+##Indices
+```{r}
+DF$index_avg_synteny <- (DF$index_synteny_target_bestpair + DF$index_synteny_query_bestpair ) / 2
+
+DF$index_avg_correlation <- (DF$index_correlation_target_bestpair + DF$index_correlation_query_bestpair ) / 2
+
+DF$index_avg_GOCvicinity4 <- (DF$index_GOCvicinity4_target_bestpair + DF$index_GOCvicinity4_query_bestpair ) / 2
+
+DF$index_avg_strandRand <- (DF$index_strandRand_target_bestpair + DF$index_strandRand_query_bestpair ) / 2
+
+DF[,grepl("index_avg", colnames(DF))] |> pairs()
+```
+
+
+##Percent Identity Vs. Strand Randomisation Index Graph
+```{r}
+DF$lab <- ifelse(DF$species1 > DF$species2,
+       paste(DF$species1, DF$species2, sep = "\n"),
+       paste(DF$species2, DF$species1, sep = "\n"))
+
+DF |>
+  #dplyr::filter(index_avg_synteny > 0.25) |>
+  dplyr::group_by(lab) |>
+  dplyr::summarise(percent_identity_global = mean(percent_identity_global),
+                   index_avg_strandRand = mean(index_avg_strandRand),
+                   lab = lab) |>
+  ggplot() +
+    geom_point() +
+    aes(percent_identity_global, index_avg_strandRand, label=lab) +
+    scale_x_continuous("Percent Identity") +
+    scale_y_continuous("Strand Randomisation Index") +
+    theme_bw() +
+    ggtitle("Halobacteria: Percent Identity Vs. Strand Randomisation Index") +
+    geom_text() -> gg
+    plotly::ggplotly(gg)
+```
+
+
+##Similarity Vs. Synteny Index
+```{r}
+ggplot(DF) + theme_bw() +
+  aes(percent_identity_global, index_avg_synteny, col = percent_mismatches_global) +
+  xlab("Identity between aligned regions (%)") +
+  ylab("Synteny index") +
+  geom_point()
+```
+
+
+##Similarity Vs. Correlation Index
+```{r}
+ggplot(DF) + theme_bw() +
+  aes(percent_identity_global, index_avg_strandRand, col = percent_mismatches_global) +
+  xlab("Identity between aligned regions (%)") +
+  ylab("Strand randomisation index") +
+  geom_point() + geom_smooth()
+```
+
+
+##Gene Order Correlation
+```{r}
+ggplot(DF) +
+  aes(percent_identity_global, index_avg_GOCvicinity4) +
+  aes(color = species1) +
+  xlab("Similarity between aligned regions") +
+  ylab("abs(correlation index)") +
+  geom_point()
+```
+
